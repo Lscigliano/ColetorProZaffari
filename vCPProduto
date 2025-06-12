@@ -6,9 +6,10 @@ a.SEQPRODUTO as IDProdutoERP,
 c.desccompleta AS Descricao,
 --c.complemento AS Complemento, --
 NULL AS Complemento, --PASSAR COM NULO, pois no sistema deles este campo concatena com descricao.
-CASE
+CASE --caso produto nao tiver cod barra, entao usar o seqproduto. Recomendação documentação.
   WHEN a.tipcodigo = 'B' THEN TO_CHAR(a.seqproduto)
-  ELSE a.codacesso
+  WHEN a.tipcodigo IS NULL THEN TO_CHAR(a.codacesso)
+  ELSE TO_CHAR(a.codacesso)
 END AS CodigoBarras,
 e.embalagem AS Unidade,
 TO_CHAR(
