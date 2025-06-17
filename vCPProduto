@@ -1,7 +1,6 @@
 CREATE OR REPLACE VIEW VCPPRODUTO AS
 SELECT
---fc5MaskCNPJCPF(b.nrocgc, b.digcgc, 'J') AS CNPJ,
-fc5MaskCNPJCPF(TO_CHAR(b.nrocgc), TO_CHAR(b.digcgc), 'J') AS CNPJ,
+fc5MaskCNPJCPF(TO_CHAR(b.nrocgc), TO_CHAR(b.digcgc), 'J') AS CNPJ, --cnpj que o produto está disp 
 a.SEQPRODUTO as IDProdutoERP,
 c.desccompleta AS Descricao,
 --c.complemento AS Complemento, --
@@ -17,24 +16,41 @@ TO_CHAR(
   'FM999G999G990D000',
   'NLS_NUMERIC_CHARACTERS = '',.'''
 ) AS Estoque, -- formato segundo documentação.
-TO_CHAR(
+
+/*TO_CHAR(
   NVL(FBUSCACUSTOLIQUIDOPROD(a.seqproduto, b.nroempresa), 0),
   'FM999G999G990D00',
   'NLS_NUMERIC_CHARACTERS = '',.'''
 ) AS ValorCusto,
+--colocar o fornecedor principal aqui [ ],
+
+
+
 TO_CHAR(
   DECODE(pre.precovalidpromoc, 0, pre.precovalidnormal, pre.precovalidpromoc),
   '9G999G999D99',
   'NLS_NUMERIC_CHARACTERS = '',.'''
 ) AS ValorVenda,
+
+*/
+
+NULL AS ValorCusto,
+NULL AS ValorVenda,
+
 REPLACE(fnomecompletonivelcategoria(a.seqfamilia, 1, 1), '\', '') AS Categoria,
 REGEXP_SUBSTR(fnomecompletonivelcategoria(a.seqfamilia, 1, 2), '[^\\]+', 1, 2) AS Setor,
 REGEXP_SUBSTR(fnomecompletonivelcategoria(a.seqfamilia, 1, 3), '[^\\]+', 1, 3) AS Grupo,
 REGEXP_SUBSTR(fnomecompletonivelcategoria(a.seqfamilia, 1, 4), '[^\\]+', 1, 4) AS SubGrupo,
 REFFABRICANTE As Fabricante,
 DECODE(NVL(a.indutilvenda, 'N'), 'S', 1, 'N', 0, 0) AS Ativo, -- se  S= 1 se N = 0 se NULL= 0
+TO_CHAR(
+  NVL(d.medvdiageral, 0),
+  'FM999G999G990D000',
+  'NLS_NUMERIC_CHARACTERS = '',.'''
+) AS MediaVendas,
+
 (
-    SELECT TO_CHAR(comp.seqcomprador, '99999')
+    SELECT comp.apelido
     FROM map_famdivisao div
     JOIN max_comprador comp ON div.seqcomprador = comp.seqcomprador
     WHERE div.nrodivisao = 1
@@ -50,22 +66,21 @@ GREATEST(
   COALESCE(pre.dtavalidacaopreco, TO_DATE('1900-01-01', 'YYYY-MM-DD')),
   COALESCE(d.dtahorultmovtoestq, TO_DATE('1900-01-01', 'YYYY-MM-DD'))
 ) AS UltimaDataAtualizacao
- 
+
 FROM MAP_PRODCODIGO A
 JOIN map_produto c ON c.seqproduto = a.seqproduto AND c.seqfamilia = a.seqfamilia
-JOIN mrl_produtoempresa d ON a.seqproduto = d.seqproduto
+JOIN mrl_produtoempresa d ON a.seqproduto = d.seqproduto --usar principal
 JOIN max_empresa b ON b.nroempresa = d.nroempresa
 JOIN map_famembalagem e ON e.seqfamilia = a.seqfamilia AND e.qtdembalagem = a.qtdembalagem
 JOIN mrl_prodempseg pre ON b.nroempresa=pre.nroempresa
-and b.nrosegmentoprinc=pre.nrosegmento --tirar duplicação de varios segmentos vinculando segmento do max empresa
+and b.nrosegmentoprinc=pre.nrosegmento --tirar duplicação de varios segmentos vinculando segmento do max empresa e pegando a principal.
 AND pre.qtdembalagem = e.qtdembalagem
 AND pre.nroempresa = b.nroempresa
 AND pre.qtdembalagem = a.qtdembalagem
-WHERE TIPCODIGO='E' -- EAN
---and A.INDUTILVENDA ='S' -- DISPONIVEL VENDA
+and pre.seqproduto = c.seqproduto
+WHERE a.TIPCODIGO='E' -- EAN -- usar dentro do left join do produto codigo--
 and PRE.STATUSVENDA = 'A' -- Status de venda ativo para o produto no segmento
 AND B.NROEMPRESA in (20) --EMPRESAS
---ORDER BY IDPRODUTOERP ASC;
 --AND d.estqloja >= 0 -- pega produto maior que 0 --eles preferiram tirar o filtro
 --AND NOT (d.statuscompra = 'I' AND d.estqloja <= 0)  -- nao pegar estoque zerado e compras indisponiveis, -- eles preferiram pegar todos
 ;
