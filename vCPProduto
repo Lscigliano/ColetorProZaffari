@@ -1,86 +1,66 @@
-CREATE OR REPLACE VIEW VCPPRODUTO AS
-SELECT
-fc5MaskCNPJCPF(TO_CHAR(b.nrocgc), TO_CHAR(b.digcgc), 'J') AS CNPJ, --cnpj que o produto está disp 
-a.SEQPRODUTO as IDProdutoERP,
-c.desccompleta AS Descricao,
---c.complemento AS Complemento, --
-NULL AS Complemento, --PASSAR COM NULO, pois no sistema deles este campo concatena com descricao.
-CASE --caso produto nao tiver cod barra, entao usar o seqproduto. Recomendação documentação.
-  WHEN a.tipcodigo = 'B' THEN TO_CHAR(a.seqproduto)
-  WHEN a.tipcodigo IS NULL THEN TO_CHAR(a.codacesso)
-  ELSE TO_CHAR(a.codacesso)
-END AS CodigoBarras,
-e.embalagem AS Unidade,
-TO_CHAR(
-  NVL(d.estqloja, 0),
-  'FM999G999G990D000',
-  'NLS_NUMERIC_CHARACTERS = '',.'''
-) AS Estoque, -- formato segundo documentação.
-
-/*TO_CHAR(
-  NVL(FBUSCACUSTOLIQUIDOPROD(a.seqproduto, b.nroempresa), 0),
-  'FM999G999G990D00',
-  'NLS_NUMERIC_CHARACTERS = '',.'''
-) AS ValorCusto,
---colocar o fornecedor principal aqui [ ],
-
-
-
-TO_CHAR(
-  DECODE(pre.precovalidpromoc, 0, pre.precovalidnormal, pre.precovalidpromoc),
-  '9G999G999D99',
-  'NLS_NUMERIC_CHARACTERS = '',.'''
-) AS ValorVenda,
-
-*/
-
-NULL AS ValorCusto,
-NULL AS ValorVenda,
-
-REPLACE(fnomecompletonivelcategoria(a.seqfamilia, 1, 1), '\', '') AS Categoria,
-REGEXP_SUBSTR(fnomecompletonivelcategoria(a.seqfamilia, 1, 2), '[^\\]+', 1, 2) AS Setor,
-REGEXP_SUBSTR(fnomecompletonivelcategoria(a.seqfamilia, 1, 3), '[^\\]+', 1, 3) AS Grupo,
-REGEXP_SUBSTR(fnomecompletonivelcategoria(a.seqfamilia, 1, 4), '[^\\]+', 1, 4) AS SubGrupo,
-REFFABRICANTE As Fabricante,
-DECODE(NVL(a.indutilvenda, 'N'), 'S', 1, 'N', 0, 0) AS Ativo, -- se  S= 1 se N = 0 se NULL= 0
-TO_CHAR(
-  NVL(d.medvdiageral, 0),
-  'FM999G999G990D000',
-  'NLS_NUMERIC_CHARACTERS = '',.'''
-) AS MediaVendas,
-
-(
-    SELECT comp.apelido
-    FROM map_famdivisao div
-    JOIN max_comprador comp ON div.seqcomprador = comp.seqcomprador
-    WHERE div.nrodivisao = 1
-      AND div.seqfamilia = a.seqfamilia
-  ) AS UsuarioIDComprador,
--- pega ultima data  alteração prod,se alguma data ficar vazia, utilizar 1900, depois transforma em varchar2
-GREATEST(
-  COALESCE(pre.datahoraalteracao, TO_DATE('1900-01-01', 'YYYY-MM-DD')),
-  COALESCE(pre.dtahoraltstatusvda, TO_DATE('1900-01-01', 'YYYY-MM-DD')),
-  COALESCE(pre.dtabaseexportacao, TO_DATE('1900-01-01', 'YYYY-MM-DD')),
-  COALESCE(pre.dtaalteracao, TO_DATE('1900-01-01', 'YYYY-MM-DD')),
-  COALESCE(pre.dtageracaopreco, TO_DATE('1900-01-01', 'YYYY-MM-DD')),
-  COALESCE(pre.dtavalidacaopreco, TO_DATE('1900-01-01', 'YYYY-MM-DD')),
-  COALESCE(d.dtahorultmovtoestq, TO_DATE('1900-01-01', 'YYYY-MM-DD'))
-) AS UltimaDataAtualizacao
-
-FROM MAP_PRODCODIGO A
-JOIN map_produto c ON c.seqproduto = a.seqproduto AND c.seqfamilia = a.seqfamilia
-JOIN mrl_produtoempresa d ON a.seqproduto = d.seqproduto --usar principal
-JOIN max_empresa b ON b.nroempresa = d.nroempresa
-JOIN map_famembalagem e ON e.seqfamilia = a.seqfamilia AND e.qtdembalagem = a.qtdembalagem
-JOIN mrl_prodempseg pre ON b.nroempresa=pre.nroempresa
-and b.nrosegmentoprinc=pre.nrosegmento --tirar duplicação de varios segmentos vinculando segmento do max empresa e pegando a principal.
-AND pre.qtdembalagem = e.qtdembalagem
-AND pre.nroempresa = b.nroempresa
-AND pre.qtdembalagem = a.qtdembalagem
-and pre.seqproduto = c.seqproduto
-WHERE a.TIPCODIGO='E' -- EAN -- usar dentro do left join do produto codigo--
-and PRE.STATUSVENDA = 'A' -- Status de venda ativo para o produto no segmento
-AND B.NROEMPRESA in (20) --EMPRESAS
---AND d.estqloja >= 0 -- pega produto maior que 0 --eles preferiram tirar o filtro
---AND NOT (d.statuscompra = 'I' AND d.estqloja <= 0)  -- nao pegar estoque zerado e compras indisponiveis, -- eles preferiram pegar todos
-;
+--CREATE OR REPLACE VIEW VCPPRODUTO AS
+SELECT 
+    ff.seqfornecedor AS IDFornecedorERP,
+    fc5MaskCNPJCPF(TO_CHAR(b.nrocgc), TO_CHAR(b.digcgc), 'J') AS CNPJ,
+    a.seqproduto AS IDProdutoERP,
+    c.desccompleta AS Descricao,
+    NULL AS Complemento,
+    CASE
+        WHEN a.tipcodigo = 'B' THEN TO_CHAR(a.seqproduto)
+        WHEN a.tipcodigo IS NULL THEN TO_CHAR(a.codacesso)
+        ELSE TO_CHAR(a.codacesso)
+    END AS CodigoBarras,
+    e.embalagem AS Unidade,
+    TO_CHAR(NVL(d.estqloja, 0), 'FM999G999G990D000', 'NLS_NUMERIC_CHARACTERS = '',.''') AS Estoque,
+    NULL AS ValorCusto,
+    NULL AS ValorVenda,
+    REPLACE(fnomecompletonivelcategoria(a.seqfamilia, 1, 1), '\', '') AS Categoria,
+    REGEXP_SUBSTR(fnomecompletonivelcategoria(a.seqfamilia, 1, 2), '[^\\]+', 1, 2) AS Setor,
+    REGEXP_SUBSTR(fnomecompletonivelcategoria(a.seqfamilia, 1, 3), '[^\\]+', 1, 3) AS Grupo,
+    REGEXP_SUBSTR(fnomecompletonivelcategoria(a.seqfamilia, 1, 4), '[^\\]+', 1, 4) AS SubGrupo,
+    REFFABRICANTE AS Fabricante,
+    FAM2.MARCA AS Marca,
+    DECODE(NVL(a.indutilvenda, 'N'), 'S', 1, 'N', 0, 0) AS Ativo,
+    TO_CHAR(NVL(d.medvdiageral, 0), 'FM999G999G990D000', 'NLS_NUMERIC_CHARACTERS = '',.''') AS MediaVendas,
+    (SELECT comp.apelido
+     FROM map_famdivisao div
+     JOIN max_comprador comp ON div.seqcomprador = comp.seqcomprador
+     WHERE div.nrodivisao = 1 AND div.seqfamilia = a.seqfamilia) AS comprador,
+    GREATEST(
+        COALESCE(pre.datahoraalteracao, TO_DATE('1900-01-01', 'YYYY-MM-DD')),
+        COALESCE(pre.dtahoraltstatusvda, TO_DATE('1900-01-01', 'YYYY-MM-DD')),
+        COALESCE(pre.dtabaseexportacao, TO_DATE('1900-01-01', 'YYYY-MM-DD')),
+        COALESCE(pre.dtaalteracao, TO_DATE('1900-01-01', 'YYYY-MM-DD')),
+        COALESCE(pre.dtageracaopreco, TO_DATE('1900-01-01', 'YYYY-MM-DD')),
+        COALESCE(pre.dtavalidacaopreco, TO_DATE('1900-01-01', 'YYYY-MM-DD')),
+        COALESCE(d.dtahorultmovtoestq, TO_DATE('1900-01-01', 'YYYY-MM-DD'))
+    ) AS UltimaDataAtualizacao
+FROM 
+    MRL_PRODUTOEMPRESA d
+JOIN MAX_EMPRESA b
+    ON b.nroempresa = d.nroempresa
+JOIN MAP_PRODCODIGO a
+    ON a.seqproduto = d.seqproduto
+    and tipcodigo = 'E'
+JOIN MAP_PRODUTO c
+    ON c.seqproduto = a.seqproduto
+    AND c.seqfamilia = a.seqfamilia
+JOIN MAP_FAMEMBALAGEM e
+    ON e.seqfamilia = a.seqfamilia
+    AND e.qtdembalagem = a.qtdembalagem
+JOIN MRL_PRODEMPSEG pre
+    ON pre.nroempresa = b.nroempresa
+    AND pre.nrosegmento = b.nrosegmentoprinc
+    AND pre.qtdembalagem = a.qtdembalagem
+    AND pre.seqproduto = a.seqproduto
+JOIN MAP_FAMILIA fam1
+    ON a.seqfamilia = fam1.seqfamilia
+LEFT JOIN MAP_MARCA fam2
+    ON fam1.seqmarca = fam2.seqmarca
+LEFT JOIN MAP_FAMFORNEC ff
+    ON ff.seqfamilia = c.seqfamilia
+    AND ff.principal = 'S'
+WHERE 0=0
+    --a.tipcodigo = 'E'
+    AND pre.statusvenda = 'A'
+    AND b.nroempresa IN (20);
